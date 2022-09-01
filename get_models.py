@@ -5,7 +5,6 @@ import time
 import os
 
 api_token = "お前のトークンを入力"
-
 cwd = os.path.dirname(__file__)
 download_type = "gltf"
 # download_type = "glb"
@@ -46,7 +45,11 @@ def get_download_url(url):
         download_url = r_json.get(download_types.pop(), None)
     if download_url is None:
         download_url = r_json.get(download_types.pop(), None)
-    download_url = r_json[download_type]["url"]
+    # なかったらない
+    if isinstance(download_url, dict):
+        download_url = download_url.get("url", None)
+    else:
+        return None
     return download_url
 
 
@@ -107,6 +110,7 @@ def main():
         # ダウンロードリンクを取得
         download_url = get_download_url(url)
         if download_url is None:
+            print(f"not found download url {name}. skipping download")
             continue
         filepath = download(download_url, models_path, name)
         save_file([filepath], "downloaded")
