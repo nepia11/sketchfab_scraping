@@ -38,6 +38,14 @@ def get_download_url(url):
     response = auth_request(url + "/download")
     r_json = response.json()
     # print(r_json)
+    # download_typeに一致するタイプがなかったら別のタイプにフォールバックする
+    main_download_type = set(download_type)
+    download_types = set(["gltf", "glb", "usdz"]) - main_download_type
+    download_url = r_json.get(download_type, None)
+    if download_url is None:
+        download_url = r_json.get(download_types.pop(), None)
+    if download_url is None:
+        download_url = r_json.get(download_types.pop(), None)
     download_url = r_json[download_type]["url"]
     return download_url
 
@@ -95,13 +103,15 @@ def main():
             print("skipping download")
             time.sleep(0.5)
             continue
-        time.sleep(1)
+        time.sleep(0.5)
         # ダウンロードリンクを取得
         download_url = get_download_url(url)
+        if download_url is None:
+            continue
         filepath = download(download_url, models_path, name)
         save_file([filepath], "downloaded")
         print(f"✅ downloaded:{filepath}")
-        time_count(10)
+        time_count()
 
 
 main()
