@@ -96,23 +96,23 @@ def main():
     for url in urls:
         if url == ("" or None):
             continue
-        # 名前を取得
-        r = auth_request(url)
-        r_json = r.json()
-        name = r_json["name"]
-        print(name)
-        # ダウンロード済みならスキップする
-        if is_downloaded_file(name):
-            print("skipping download")
-            time.sleep(0.5)
-            continue
-        time.sleep(0.5)
-        # ダウンロードリンクを取得
-        download_url = get_download_url(url)
-        if download_url is None:
-            print(f"not found download url {name}. skipping download")
-            continue
         try:
+            # 名前を取得
+            r = auth_request(url)
+            r_json = r.json()
+            name = r_json["name"]
+            print(name)
+            # ダウンロード済みならスキップする
+            if is_downloaded_file(name):
+                print("skipping download")
+                time.sleep(0.5)
+                continue
+            time.sleep(0.5)
+            # ダウンロードリンクを取得
+            download_url = get_download_url(url)
+            if download_url is None:
+                print(f"not found download url {name}. skipping download")
+                continue
             filepath = download(download_url, models_path, name)
             save_file([filepath], "downloaded")
             print(f"✅ downloaded:{filepath}")
