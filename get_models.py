@@ -112,10 +112,14 @@ def main():
         if download_url is None:
             print(f"not found download url {name}. skipping download")
             continue
-        filepath = download(download_url, models_path, name)
-        save_file([filepath], "downloaded")
-        print(f"✅ downloaded:{filepath}")
-        time_count()
+        try:
+            filepath = download(download_url, models_path, name)
+            save_file([filepath], "downloaded")
+            print(f"✅ downloaded:{filepath}")
+            time_count(5)
+        except Exception as e:
+            print(e)
+            continue
 
 
 main()
