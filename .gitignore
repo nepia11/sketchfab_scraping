@@ -2,3 +2,4 @@
 /.venv
 /downloaded.txt
 /models
+session_cache.sqlite

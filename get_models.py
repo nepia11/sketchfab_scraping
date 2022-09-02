@@ -3,12 +3,27 @@ import requests
 import pprint
 import time
 import os
+import requests_cache
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
 api_token = "お前のトークンを入力"
 cwd = os.path.dirname(__file__)
 download_type = "gltf"
 # download_type = "glb"
 # download_type = "usdz"
+
+# 　リクエストキャッシュの設定
+Retry
+session = requests_cache.CachedSession("session_cache")
+retries = Retry(
+    total=10,
+    backoff_factor=2,
+    status_forcelist=[429, 500, 502, 503, 504],
+    respect_retry_after_header=True,
+)
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
 
 
 def time_count(t: int):
@@ -93,21 +108,25 @@ def main():
     f = open(os.path.join(cwd, "urls.txt"), "r")
     urls = [v.rstrip("\n") for v in f.readlines()]
 
-    for url in urls:
+    for i, url in enumerate(urls):
+        print(i)
         if url == ("" or None):
             continue
         try:
             # 名前を取得
-            r = auth_request(url)
+            # too many requestsとか出るのでリトライする
+            r = session.get(url)
             r_json = r.json()
-            name = r_json["name"]
-            print(name)
+            name = r_json.get("name", None)
+            if name is not None:
+                print(name)
+            else:
+                print(r.headers)
             # ダウンロード済みならスキップする
             if is_downloaded_file(name):
                 print("skipping download")
-                time.sleep(0.5)
                 continue
-            time.sleep(0.5)
+            time.sleep(1)
             # ダウンロードリンクを取得
             download_url = get_download_url(url)
             if download_url is None:
@@ -120,6 +139,8 @@ def main():
         except Exception as e:
             print(e)
             continue
+
+    f.close()
 
 
 main()
