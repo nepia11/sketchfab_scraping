@@ -8,6 +8,21 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from requests_ratelimiter import LimiterAdapter
 from dotenv import load_dotenv
+from requests_cache import CacheMixin, SQLiteCache
+from requests_ratelimiter import LimiterMixin
+
+
+class CachedLimiterSession(CacheMixin, LimiterMixin, requests.Session):
+    """Session class with caching and rate-limiting behavior. Accepts arguments for both
+    LimiterSession and CachedSession.
+    """
+
+
+# Optionally use Redis as both the bucket backend and the cache backend
+session = CachedLimiterSession(
+    "session_cache",
+    per_hour=300,
+)
 
 # token setup
 load_dotenv()
@@ -16,7 +31,6 @@ cwd = os.path.dirname(__file__)
 download_type = os.environ["DOWNLOAD_TYPE"]
 
 # setup session
-session = requests_cache.CachedSession("session_cache")
 retries = Retry(
     total=5,
     backoff_factor=1,
@@ -25,10 +39,6 @@ retries = Retry(
 )
 session.mount("https://", HTTPAdapter(max_retries=retries))
 session.mount("http://", HTTPAdapter(max_retries=retries))
-# Apply a rate-limit
-adapter = LimiterAdapter(per_hour=300)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
 
 
 def time_count(t: int):
@@ -140,7 +150,7 @@ def main():
             filepath = download(download_url, models_path, name)
             save_file([filepath], "downloaded")
             print(f"✅ downloaded:{filepath}")
-            time_count(5)
+            # time_count(5)
         except Exception as e:
             print(e)
             continue
@@ -148,4 +158,4 @@ def main():
     f.close()
 
 
-# main()
+main()
