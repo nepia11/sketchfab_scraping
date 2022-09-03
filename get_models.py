@@ -59,7 +59,7 @@ def mkdir_models():
 
 def auth_request(url):
     headers = {"Authorization": f"Token {api_token}"}
-    result = requests.get(url, headers=headers)
+    result = session.get(url, headers=headers)
     return result
 
 
