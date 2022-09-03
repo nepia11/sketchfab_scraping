@@ -6,24 +6,29 @@ import os
 import requests_cache
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+from requests_ratelimiter import LimiterAdapter
+from dotenv import load_dotenv
 
-api_token = "お前のトークンを入力"
+# token setup
+load_dotenv()
+api_token = os.environ["API_TOKEN"]
 cwd = os.path.dirname(__file__)
-download_type = "gltf"
-# download_type = "glb"
-# download_type = "usdz"
+download_type = os.environ["DOWNLOAD_TYPE"]
 
-# 　リクエストキャッシュの設定
-Retry
+# setup session
 session = requests_cache.CachedSession("session_cache")
 retries = Retry(
-    total=10,
-    backoff_factor=2,
+    total=5,
+    backoff_factor=1,
     status_forcelist=[429, 500, 502, 503, 504],
     respect_retry_after_header=True,
 )
 session.mount("https://", HTTPAdapter(max_retries=retries))
 session.mount("http://", HTTPAdapter(max_retries=retries))
+# Apply a rate-limit
+adapter = LimiterAdapter(per_hour=300)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 def time_count(t: int):
@@ -143,4 +148,4 @@ def main():
     f.close()
 
 
-main()
+# main()
