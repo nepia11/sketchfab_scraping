@@ -24,9 +24,9 @@ pipenv について
 - cmd とか terminal とかの作業ディレクトリをこのプロジェクトがあるディレクトリに移動する
 - urls.txt を取得していなければ、`python get_urls.py`を実行する
   - urls.txt が作成されて中身が書き込まれていれば成功
-- `get_models.py`の`api_token`に自分の sketchfab の api トークンを記入する
+- `.env`ファイルの`API_TOKEN`に自分の sketchfab の api トークンを記入する
   - https://sketchfab.com/settings/password
   - ここから取得できる
 - `python get_models.py`を実行する
   - 途中で実行が中断しても、再度実行すればダウンロードが終わったところから再開してくれるはず
-  - コード中の`download_type`を書き換えれば別のファイルタイプでダウンロードできるはず
+  - `.env`ファイルの`DOWNLOAD_TYPE`を書き換えれば別のファイルタイプでダウンロードできるはず
