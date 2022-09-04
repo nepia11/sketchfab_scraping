@@ -21,7 +21,7 @@ class CachedLimiterSession(CacheMixin, LimiterMixin, requests.Session):
 # Optionally use Redis as both the bucket backend and the cache backend
 session = CachedLimiterSession(
     "session_cache",
-    per_hour=300,
+    per_minute=300 / 60,
 )
 
 # token setup
@@ -116,12 +116,33 @@ def is_downloaded_file(name: str):
     return result
 
 
-def main():
-    models_path = mkdir_models()
-    # url = "https://api.sketchfab.com/v3/models/7975cbf2d2684533848511efa2c00fda"
-    # urlリストのファイルを読み込む
-    f = open(os.path.join(cwd, "urls.txt"), "r")
+def create_resumed_urls(urls: list):
+    # urlsからdownloadedなものを除去してresumed_urlsを作成
+    resumed_urls = []
+    for url in urls:
+        r = session.request(method="GET", url=url)
+        r_json = r.json()
+        name = r_json.get("name", None)
+        if not is_downloaded_file(name):
+            resumed_urls.append(url)
+
+    return resumed_urls
+
+
+def read_urls(filename: str):
+    f = open(os.path.join(cwd, filename), "r")
     urls = [v.rstrip("\n") for v in f.readlines()]
+    return urls
+
+
+def write_resumed_urls():
+    urls = read_urls("urls.txt")
+    resumed_urls = create_resumed_urls(urls)
+    save_file(resumed_urls, "resumed_urls")
+
+
+def main(urls: list[str]):
+    models_path = mkdir_models()
 
     for i, url in enumerate(urls):
         print(i)
@@ -129,19 +150,26 @@ def main():
             continue
         try:
             # 名前を取得
-            # too many requestsとか出るのでリトライする
-            r = session.get(url)
+            if session.cache.has_url(url=url, method="GET"):
+                print(f"Request cached:{url}")
+
+            r = session.request(method="GET", url=url)
+            time.sleep(0.1)
+
             r_json = r.json()
             name = r_json.get("name", None)
+
             if name is not None:
                 print(name)
             else:
                 print(r.headers)
+
             # ダウンロード済みならスキップする
             if is_downloaded_file(name):
                 print("skipping download")
                 continue
-            time.sleep(1)
+            time.sleep(2)
+
             # ダウンロードリンクを取得
             download_url = get_download_url(url)
             if download_url is None:
@@ -151,11 +179,14 @@ def main():
             save_file([filepath], "downloaded")
             print(f"✅ downloaded:{filepath}")
             # time_count(5)
+            time.sleep(1)
+
         except Exception as e:
             print(e)
             continue
 
-    f.close()
 
-
-main()
+# time_count(60 * 60)
+urls = create_resumed_urls(read_urls("urls.txt"))
+main(urls)
+# write_resumed_urls()
