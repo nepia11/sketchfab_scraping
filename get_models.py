@@ -136,28 +136,22 @@ def read_file(filename: str):
     return lines
 
 
-def main(urls: list[str]):
+def main(models_info: list[dict]):
     models_path = mkdir_models()
+    # models_infoを重複除去
+    urls = [v["url"] for v in models_info]
 
-    for i, url in enumerate(urls):
+    for i, model_info in enumerate(models_info):
         print(i)
-        if url == ("" or None):
+        if model_info == ("" or None):
             continue
         try:
             # 名前を取得
-            if session.cache.has_url(url=url, method="GET"):
-                print(f"Request cached:{url}")
-
-            r = session.request(method="GET", url=url)
-            time.sleep(0.1)
-
-            r_json = r.json()
-            name = r_json.get("name", None)
+            url = model_info["url"]
+            name = model_info["name"]
 
             if name is not None:
                 print(name)
-            else:
-                print(r.headers)
 
             # ダウンロード済みならスキップする
             if is_downloaded_file(name):
@@ -186,10 +180,48 @@ if __name__ == "__main__":
     session = session_setup()
     with open("urls.json") as f:
         models_info = json.load(f)
-    urls = [v["url"] for v in models_info]
-    resumed_urls = create_resumed_urls(models_info)
 
-    print(len(urls))
-    print(len(set(resumed_urls)))
-    print(resumed_urls)
-    main(resumed_urls)
+    names = {v["name"]: 0 for v in models_info}
+    # 変形、ついでに重複が除去される
+    urlkey_models_info = {
+        v["url"]: {"uid": v["uid"], "name": v["name"]} for v in models_info
+    }
+    # 名前かぶりを数えて別名をつける
+    for k, v in urlkey_models_info.items():
+        name = v["name"]
+        names[name] += 1
+
+    count = 0
+    for k, v in urlkey_models_info.items():
+        name = v["name"]
+        if names[name] > 1:
+            uid = v["uid"]
+            new_name = f"{name}__{uid}"
+            urlkey_models_info[k].update({"uid": uid, "name": new_name})
+            # print(urlkey_models_info[k])
+            # count += 1
+
+    # ダウンロード済みを除去
+    with open("downloaded.txt", "r") as df:
+        downloaded = df.read()
+    # print(downloaded)
+
+    # test
+    # for k, v in urlkey_models_info.items():
+    #     name = v["name"]
+    #     print(name)
+    #     print(name in downloaded)
+    #     if name in downloaded:
+    #         pass
+    #     else:
+    #         time.sleep(0.1)
+
+    modified_models_info = [
+        {"url": k, "uid": v["uid"], "name": v["name"]}
+        for k, v in urlkey_models_info.items()
+        if v["name"] not in downloaded
+    ]
+
+    print(len(modified_models_info))
+    # print("duplicate", count)
+    main(modified_models_info)
