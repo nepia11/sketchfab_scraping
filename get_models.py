@@ -10,6 +10,14 @@ from requests_ratelimiter import LimiterAdapter
 from dotenv import load_dotenv
 from requests_cache import CacheMixin, SQLiteCache
 from requests_ratelimiter import LimiterMixin
+import json
+
+
+# token setup
+load_dotenv()
+api_token = os.environ["API_TOKEN"]
+cwd = os.path.dirname(__file__)
+download_type = os.environ["DOWNLOAD_TYPE"]
 
 
 class CachedLimiterSession(CacheMixin, LimiterMixin, requests.Session):
@@ -18,27 +26,23 @@ class CachedLimiterSession(CacheMixin, LimiterMixin, requests.Session):
     """
 
 
-# Optionally use Redis as both the bucket backend and the cache backend
-session = CachedLimiterSession(
-    "session_cache",
-    per_minute=300 / 60,
-)
+def session_setup():
+    session = CachedLimiterSession(
+        "session_cache",
+        per_minute=300 / 60,
+    )
 
-# token setup
-load_dotenv()
-api_token = os.environ["API_TOKEN"]
-cwd = os.path.dirname(__file__)
-download_type = os.environ["DOWNLOAD_TYPE"]
+    # setup session
+    retries = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        respect_retry_after_header=True,
+    )
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+    session.mount("http://", HTTPAdapter(max_retries=retries))
 
-# setup session
-retries = Retry(
-    total=5,
-    backoff_factor=1,
-    status_forcelist=[429, 500, 502, 503, 504],
-    respect_retry_after_header=True,
-)
-session.mount("https://", HTTPAdapter(max_retries=retries))
-session.mount("http://", HTTPAdapter(max_retries=retries))
+    return session
 
 
 def time_count(t: int):
@@ -59,7 +63,7 @@ def mkdir_models():
 
 def auth_request(url):
     headers = {"Authorization": f"Token {api_token}"}
-    result = session.get(url, headers=headers)
+    result = session.request(method="GET", url=url, headers=headers)
     return result
 
 
@@ -116,29 +120,20 @@ def is_downloaded_file(name: str):
     return result
 
 
-def create_resumed_urls(urls: list):
-    # urlsからdownloadedなものを除去してresumed_urlsを作成
+def create_resumed_urls(models_info: dict):
     resumed_urls = []
-    for url in urls:
-        r = session.request(method="GET", url=url)
-        r_json = r.json()
-        name = r_json.get("name", None)
+    for info in models_info:
+        name = info.get("name", None)
         if not is_downloaded_file(name):
-            resumed_urls.append(url)
+            resumed_urls.append(info.get("url"))
 
     return resumed_urls
 
 
-def read_urls(filename: str):
-    f = open(os.path.join(cwd, filename), "r")
-    urls = [v.rstrip("\n") for v in f.readlines()]
-    return urls
-
-
-def write_resumed_urls():
-    urls = read_urls("urls.txt")
-    resumed_urls = create_resumed_urls(urls)
-    save_file(resumed_urls, "resumed_urls")
+def read_file(filename: str):
+    f = open(filename, "r")
+    lines = [v.rstrip("\n") for v in f.readlines()]
+    return lines
 
 
 def main(urls: list[str]):
@@ -186,7 +181,15 @@ def main(urls: list[str]):
             continue
 
 
-# time_count(60 * 60)
-urls = create_resumed_urls(read_urls("urls.txt"))
-main(urls)
-# write_resumed_urls()
+if __name__ == "__main__":
+    # time_count(60 * 60)
+    session = session_setup()
+    with open("urls.json") as f:
+        models_info = json.load(f)
+    urls = [v["url"] for v in models_info]
+    resumed_urls = create_resumed_urls(models_info)
+
+    print(len(urls))
+    print(len(set(resumed_urls)))
+    print(resumed_urls)
+    main(resumed_urls)
