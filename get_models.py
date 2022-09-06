@@ -63,7 +63,7 @@ def mkdir_models():
 
 def auth_request(url):
     headers = {"Authorization": f"Token {api_token}"}
-    result = session.request(method="GET", url=url, headers=headers)
+    result = requests.request(method="GET", url=url, headers=headers)
     return result
 
 
@@ -101,9 +101,9 @@ def download(url: str, download_directory: str, filename: str):
     return filepath
 
 
-def save_file(lines: list, name: str):
+def save_file(lines: list, name: str, mode: str = "a"):
     # ファイルを作成する
-    f = open(f"{name}.txt", "a")
+    f = open(f"{name}.txt", mode)
     for line in lines:
         f.write(line + "\n")
     f.close()
@@ -165,7 +165,7 @@ def main(models_info: list[dict]):
                 print(f"not found download url {name}. skipping download")
                 continue
             filepath = download(download_url, models_path, name)
-            save_file([filepath], "downloaded")
+            save_file([filepath], "downloaded", mode="a")
             print(f"✅ downloaded:{filepath}")
             # time_count(5)
             time.sleep(1)
@@ -173,6 +173,54 @@ def main(models_info: list[dict]):
         except Exception as e:
             print(e)
             continue
+
+
+def verify_downloaded_files():
+    # ダウンロード済みのファイルリストを取得
+    dir_path = os.path.join(cwd, "models")
+    models_dir_files = [os.path.join(dir_path, p) for p in os.listdir(dir_path)]
+    # print(models_dir_files)
+    files = {f: os.path.getsize(f) for f in models_dir_files}
+    # ファイルサイズが同じものを重複として1つ残して削除する
+    # ファイルの拡張子を除いたパスの先頭が一致していたら重複として除去する
+    duplicated_result = {}
+    for k, v in list(files.items()):
+        keys = list(files.keys())
+        for key in keys:
+            _k = os.path.splitext(k)[0]
+            _k2 = os.path.splitext(key)[0]
+            # 同じ文字列ならスキップ
+            if _k == _k2:
+                # print(_k)
+                continue
+            # 先頭が一致しているファイル名を削除
+            elif _k2.startswith(_k):
+                print(_k)
+                print(_k2)
+                duplicated_result.update({k: v})
+                continue
+            # 名前は一致しないがファイルサイズが一致しているものを削除
+            elif _k != _k2:
+                if v == files[key]:
+                    duplicated_result.update({k: v})
+                    continue
+
+    print(len(duplicated_result))
+
+    # 名前の重複したものを削除したdictを作る
+    duplicated_keys = set(duplicated_result.keys())
+    file_keys = set(files.keys())
+    remove_duplicated_files = {k: files[k] for k in file_keys - duplicated_keys}
+    print(len(remove_duplicated_files))
+
+    # 重複ファイルを削除する
+    remove_duplicated_files.keys()
+    delete_files = duplicated_keys
+    for filename in delete_files:
+        os.remove(filename)
+
+    # 残ったファイルのリストを返す
+    return list(remove_duplicated_files.keys())
 
 
 if __name__ == "__main__":
@@ -223,5 +271,6 @@ if __name__ == "__main__":
     ]
 
     print(len(modified_models_info))
-    # print("duplicate", count)
+    verify_downloaded = verify_downloaded_files()
+    save_file(verify_downloaded, name="downloaded", mode="w")
     main(modified_models_info)
